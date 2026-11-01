@@ -48,6 +48,22 @@
     '{n}已经很棒了，别对自己太苛刻 🌷', '累了就停一停，世界不会塌的', '你值得被温柔对待，包括被你自己 💗',
     '今天的{n}也闪闪发光 ✨', '慢慢来，比较快', '不开心的事，睡一觉就交给昨天吧 🌙', '你不需要讨好所有人，做自己就很好',
   ];
+  // Coworker lines; the names themselves live only in her settings, never in this file.
+  const BAD_LINES = [
+    '{bad}又在那儿装？别理，{n}的时间很贵的 💅', '{bad}今天又甩锅了吗？睿睿已经记在小本本上了 📓',
+    '{bad}的话听听就好，跟领导画的饼一个味儿 🫓', '祝{bad}今天电脑卡、外卖撒、会议开到九点 😈',
+    '{bad}说啥都"对对对"，然后继续干自己的 🙃', '{bad}这种人，工位自带降智光环',
+    '{n}别气，{bad}这种人，生活已经在惩罚了', '{bad}要是再惹{n}，睿睿今晚就去梦里让{bad}改 PPT 到天亮',
+    '{bad}的锅自己背，{n}不接 🙅', '跟{bad}置气不值得，留着力气下班吃好吃的 🍜',
+  ];
+  const MIXED_LINES = [
+    '{mixed}今天是好{mixed}还是坏{mixed}？先观察一下再说 👀', '{mixed}时好时坏，跟公司 Wi-Fi 一样 📶',
+    '{mixed}今天要是靠谱，睿睿就勉强夸一句', '{mixed}嘛，看心情给好脸色就行 😏',
+  ];
+  const GOOD_LINES = [
+    '还好有{good}在，上班也没那么难熬 ☺️', '{good}是好人！今天约{good}一起吃饭吧 🍱',
+    '{good}这种同事要好好珍惜，比奶茶还甜 🧋', '被{bad}气到了就去找{good}聊聊天 💬',
+  ];
   const PRAISE = ['记下啦！{n}真自觉 👍', '收到收到，睿睿给{n}盖个章 ✅', '乖～继续保持 😎', '好耶，{n}今天也很靠谱 💪'];
   const LOVE_LINES = [
     '哎哟～😳 睿睿捂住眼睛了，已记录！', '咳咳，睿睿什么都没看见 🙈', '本月第 {c} 次 💕 感情真好呀～',
@@ -79,7 +95,7 @@
   const onColorOf = h => ON_COLOR[h.color % COLORS.length];
 
   // ---------- state ----------
-  const DEFAULT_SETTINGS = { nicknames: ['老婆'], font: 'large', cycle: 28, plen: 5, hideLove: true, onboarded: false };
+  const DEFAULT_SETTINGS = { nicknames: ['老婆'], font: 'large', cycle: 28, plen: 5, hideLove: true, onboarded: false, people: { bad: [], mixed: [], good: [] } };
 
   function seed() {
     const t = todayKey();
@@ -101,6 +117,7 @@
   function normalize(s) {
     s.settings = Object.assign({}, DEFAULT_SETTINGS, s.settings || {});
     if (!Array.isArray(s.settings.nicknames) || !s.settings.nicknames.length) s.settings.nicknames = ['老婆'];
+    s.settings.people = Object.assign({ bad: [], mixed: [], good: [] }, s.settings.people || {});
     s.habits = Array.isArray(s.habits) ? s.habits : [];
     s.meds = Array.isArray(s.meds) ? s.meds : [];
     s.periods = Array.isArray(s.periods) ? s.periods : [];
@@ -136,6 +153,7 @@
     s.meds.forEach(m => { m.created = start; });
     s.settings.onboarded = true;
     s.settings.nicknames = ['老婆', '宝宝', '小仙女'];
+    s.settings.people = { bad: ['坏同事A'], mixed: ['同事B'], good: ['好同事C'] };
     let r = 11;
     const rnd = () => { r = (r * 9301 + 49297) % 233280; return r / 233280; };
     for (let i = 70; i >= 1; i--) {
@@ -216,7 +234,23 @@
 
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
   const who = () => pick(S.settings.nicknames);
-  const fill = (line, extra = {}) => line.replace(/\{n\}/g, () => who()).replace(/\{c\}/g, extra.c ?? '');
+  const people = key => (S.settings.people && S.settings.people[key]) || [];
+  // One name per line so "{bad}...{bad}" talks about the same person.
+  const fill = (line, extra = {}) => {
+    const names = {};
+    for (const k of ['bad', 'mixed', 'good']) { const l = people(k); if (l.length) names[k] = pick(l); }
+    return line.replace(/\{n\}/g, () => who()).replace(/\{c\}/g, extra.c ?? '')
+      .replace(/\{(bad|mixed|good)\}/g, (m, k) => names[k] || '那个同事');
+  };
+  const usable = line => (line.match(/\{(bad|mixed|good)\}/g) || []).every(m => people(m.slice(1, -1)).length);
+  function roastLine() {
+    const pool = [...BAD_LINES, ...BAD_LINES, ...MIXED_LINES].filter(usable);
+    return fill(pick(pool.length && Math.random() < 0.65 ? pool : ROAST));
+  }
+  function soupLine() {
+    const pool = GOOD_LINES.filter(usable);
+    return fill(pick(pool.length && Math.random() < 0.4 ? pool : SOUP));
+  }
 
   // ---------- period ----------
   const daysBetween = (a, b) => Math.round((parseKey(b) - parseKey(a)) / 864e5);
@@ -334,42 +368,67 @@
     return h < 5 ? '夜深了' : h < 11 ? '早上好' : h < 13 ? '中午好' : h < 18 ? '下午好' : '晚上好';
   }
 
-  // ---------- 睿睿 (curly-haired helper) ----------
+  // ---------- 睿睿 (perm-haired, glasses) ----------
   function ruiSVG(extra = '', mood = '') {
     const shy = mood === 'shy';
-    const curls = [[26, 50, 11], [30, 35, 12], [42, 24, 12], [57, 19, 12], [72, 21, 12], [85, 29, 12], [93, 43, 11], [95, 57, 9], [24, 63, 8]]
-      .map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('');
+    const skin = '#ffe1c9', hair = '#33241e', hairHi = '#6a5043';
+    // soft perm: scalloped crown + side-swept fringe, short tapered sides
+    const crown = [[36,38,8],[40,29,9],[48,22,9.5],[58,18.5,10],[69,19,10],[79,23,9.5],[86,31,8.5],[88,40,7]]
+      .map(([x,y,r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('');
+    const fringe = [[38,42,5.6],[45,40.5,6],[53,39.2,6.2],[61,38.6,6.2],[69,39.6,6],[76,41.5,5.6],[82,44,5]]
+      .map(([x,y,r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('');
+    const curlMarks = [[45,28,-12],[57,23,6],[69,25,-8],[79,30,10],[51,34,4],[63,33,-6],[74,37,8],[41,37,-10]]
+      .map(([x,y,r]) => `<path transform="rotate(${r} ${x} ${y})" d="M${x-4} ${y+1.5} q4 -5.5 8 0"/>`).join('');
     const eyes = shy
-      ? `<path d="M39 62 Q45 56 51 62" stroke="#2b2b2b" stroke-width="3.2" fill="none" stroke-linecap="round"/>
-         <path d="M69 62 Q75 56 81 62" stroke="#2b2b2b" stroke-width="3.2" fill="none" stroke-linecap="round"/>`
-      : `<ellipse class="eye" cx="45" cy="62" rx="3.6" ry="4.3" fill="#2b2b2b"/><ellipse class="eye" cx="75" cy="62" rx="3.6" ry="4.3" fill="#2b2b2b"/>
-         <circle cx="46.5" cy="60.5" r="1.2" fill="#fff"/><circle cx="76.5" cy="60.5" r="1.2" fill="#fff"/>`;
+      ? `<path d="M40 61 Q45 56 50 61" stroke="#2a1f1a" stroke-width="3" fill="none" stroke-linecap="round"/>
+         <path d="M70 61 Q75 56 80 61" stroke="#2a1f1a" stroke-width="3" fill="none" stroke-linecap="round"/>`
+      : `<ellipse class="eye" cx="45" cy="61" rx="4.2" ry="5.2" fill="#2a1f1a"/><ellipse class="eye" cx="75" cy="61" rx="4.2" ry="5.2" fill="#2a1f1a"/>
+         <circle cx="46.6" cy="59" r="1.6" fill="#fff"/><circle cx="76.6" cy="59" r="1.6" fill="#fff"/>
+         <circle cx="43.7" cy="63" r=".85" fill="#fff" opacity=".8"/><circle cx="73.7" cy="63" r=".85" fill="#fff" opacity=".8"/>`;
+    const brows = shy
+      ? `<path d="M39 50.5 Q45 49 51 51" stroke="${hair}" stroke-width="3" fill="none" stroke-linecap="round"/>
+         <path d="M69 51 Q75 49 81 50.5" stroke="${hair}" stroke-width="3" fill="none" stroke-linecap="round"/>`
+      : `<path d="M39 51.5 Q45 47.5 51.5 50" stroke="${hair}" stroke-width="3" fill="none" stroke-linecap="round"/>
+         <path d="M68.5 50 Q75 47.5 81 51.5" stroke="${hair}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
     const mouth = shy
-      ? `<path d="M53 80 Q60 85 67 80" stroke="#8a3a2a" stroke-width="3" fill="none" stroke-linecap="round"/>`
-      : `<path class="mouth" d="M50 79 Q61 89 72 77" stroke="#8a3a2a" stroke-width="3.2" fill="none" stroke-linecap="round"/>
-         <path d="M64 82 Q67 88 70 82" fill="#ff7f8f"/>`;
+      ? `<path d="M55 80 Q60 83 65 80" stroke="#a24b3c" stroke-width="2.6" fill="none" stroke-linecap="round"/>`
+      : `<path class="mouth" d="M53 79 Q62 84.5 69.5 77" stroke="#a24b3c" stroke-width="2.7" fill="none" stroke-linecap="round"/>`;
     const hearts = shy ? `<g class="hearts" fill="#ff5c8a">
-        <path d="M100 24 c-3-5 -10-2 -7 3 l7 7 7-7 c3-5 -4-8 -7-3z"/>
-        <path d="M14 34 c-2-4 -8-2 -6 2 l6 6 6-6 c2-4 -4-6 -6-2z" opacity=".8"/></g>` : '';
+        <path d="M101 22 c-3-5 -10-2 -7 3 l7 7 7-7 c3-5 -4-8 -7-3z"/>
+        <path d="M16 30 c-2-4 -8-2 -6 2 l6 6 6-6 c2-4 -4-6 -6-2z" opacity=".8"/></g>` : '';
+    const arms = shy
+      ? `<path d="M34 114 Q30 96 38 86" stroke="#4f6fa8" stroke-width="10" stroke-linecap="round" fill="none"/>
+         <circle cx="39" cy="83" r="6" fill="${skin}"/>
+         <path d="M86 114 Q90 96 82 86" stroke="#4f6fa8" stroke-width="10" stroke-linecap="round" fill="none"/>
+         <circle cx="81" cy="83" r="6" fill="${skin}"/>`
+      : `<path d="M34 112 Q29 122 31 134" stroke="#4f6fa8" stroke-width="10" stroke-linecap="round" fill="none"/>
+         <g class="arm"><path d="M87 112 Q101 104 103 90" stroke="#4f6fa8" stroke-width="10" stroke-linecap="round" fill="none"/>
+         <circle cx="103.5" cy="86" r="6.5" fill="${skin}"/></g>`;
     return `<svg class="rui ${extra} ${shy ? 'shy' : ''}" viewBox="0 0 120 142" aria-hidden="true">
-      <ellipse cx="60" cy="137" rx="30" ry="4.5" fill="#000" opacity=".08"/>
-      <path d="M28 134 Q28 99 60 99 Q92 99 92 134 Z" fill="#8f6ad9"/>
-      <path d="M49 100 L60 113 L71 100 Z" fill="#fff"/>
-      <path d="M57 122 c-2-3 -7-1 -5 2 l5 5 5-5 c2-3 -3-5 -5-2z" fill="#ffd1e1"/>
-      ${shy ? `<path d="M33 111 Q30 92 42 80" stroke="#ffd9b8" stroke-width="9" stroke-linecap="round" fill="none"/>
-               <path d="M87 111 Q90 92 78 80" stroke="#ffd9b8" stroke-width="9" stroke-linecap="round" fill="none"/>`
-            : `<path d="M33 111 Q22 119 26 130" stroke="#ffd9b8" stroke-width="9" stroke-linecap="round" fill="none"/>
-               <g class="arm"><path d="M87 109 Q103 101 105 85" stroke="#ffd9b8" stroke-width="9" stroke-linecap="round" fill="none"/>
-               <circle cx="105" cy="83" r="6.5" fill="#ffd9b8"/></g>`}
+      <ellipse cx="60" cy="138" rx="30" ry="4" fill="#000" opacity=".08"/>
+      <rect x="53.5" y="86" width="13" height="18" rx="5" fill="#f3c9a9"/>
+      <path d="M26 138 Q27 106 60 104 Q93 106 94 138 Z" fill="#4f6fa8"/>
+      <path d="M50 104 L60 118 L70 104 Z" fill="#fff"/>
+      <path d="M50 104 L44 116 M70 104 L76 116" stroke="#3d5a8c" stroke-width="2.2" stroke-linecap="round"/>
+      ${arms}
       <g class="rui-head">
-        <circle cx="22" cy="63" r="7" fill="#ffcba1"/><circle cx="98" cy="63" r="7" fill="#ffcba1"/>
-        <circle cx="60" cy="61" r="37" fill="#ffd9b8"/>
-        <g fill="#5a3522">${curls}<path d="M28 52 Q40 40 60 42 Q80 40 92 52 Q86 30 60 28 Q34 30 28 52 Z"/></g>
+        <ellipse cx="29.5" cy="63" rx="5.5" ry="7" fill="#f7cbab"/><ellipse cx="90.5" cy="63" rx="5.5" ry="7" fill="#f7cbab"/>
+        <path d="M31 56 Q31 33 60 31 Q89 33 89 56 Q89 78 75 89 Q60 98 45 89 Q31 78 31 56 Z" fill="${skin}"/>
+        <g fill="${hair}">
+          <path d="M30.5 62 Q28 40 42 28 Q60 17 78 25 Q92 34 89.5 62 Q88 52 84 47 Q74 42 60 42 Q46 42 37 47 Q32 52 30.5 62 Z"/>
+          ${crown}${fringe}
+        </g>
+        <g stroke="${hairHi}" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".9">${curlMarks}</g>
+        <path d="M47 21 Q58 14 71 18" stroke="#7a6052" stroke-width="2.4" fill="none" stroke-linecap="round" opacity=".7"/>
+        ${brows}
         ${eyes}
-        <g fill="rgba(255,255,255,.22)" stroke="#3a3a3a" stroke-width="3"><circle cx="45" cy="62" r="11.5"/><circle cx="75" cy="62" r="11.5"/></g>
-        <path d="M56.5 61 Q60 58 63.5 61" stroke="#3a3a3a" stroke-width="3" fill="none"/>
-        <ellipse cx="36" cy="78" rx="${shy ? 8 : 6}" ry="${shy ? 5 : 3.5}" fill="#ff8fa3" opacity="${shy ? 0.85 : 0.6}"/>
-        <ellipse cx="84" cy="78" rx="${shy ? 8 : 6}" ry="${shy ? 5 : 3.5}" fill="#ff8fa3" opacity="${shy ? 0.85 : 0.6}"/>
+        <g fill="rgba(255,255,255,.16)" stroke="#232323" stroke-width="2.1">
+          <rect x="34.5" y="53" width="21" height="16" rx="8"/><rect x="64.5" y="53" width="21" height="16" rx="8"/></g>
+        <path d="M55.5 59 Q60 56.5 64.5 59" stroke="#232323" stroke-width="2.1" fill="none"/>
+        <path d="M34 57 L31 56 M86 57 L89 56" stroke="#232323" stroke-width="2.2" stroke-linecap="round"/>
+        <path d="M60.5 66 Q58.5 71.5 61.5 72.5" stroke="#e3a78a" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <ellipse cx="38" cy="76" rx="${shy ? 7.5 : 5}" ry="${shy ? 4.5 : 3}" fill="#ff9aa8" opacity="${shy ? 0.8 : 0.45}"/>
+        <ellipse cx="82" cy="76" rx="${shy ? 7.5 : 5}" ry="${shy ? 4.5 : 3}" fill="#ff9aa8" opacity="${shy ? 0.8 : 0.45}"/>
         ${mouth}
       </g>
       ${hearts}
@@ -398,7 +457,7 @@
     const water = st.hs.find(h => h.name.includes('水'));
     if (water && hv(t, water.id) < water.goal && hour >= 10) return `${n}，喝口水再骂领导，嗓子要紧 💧 还差 ${water.goal - hv(t, water.id)} 杯`;
     if (st.overall >= 1) return `今天全部搞定！${n}就是人间清醒本醒 👑`;
-    return fill(pick(Math.random() < 0.5 ? WORK : ROAST));
+    return Math.random() < 0.5 ? fill(pick(WORK)) : roastLine();
   }
 
   function nextRuiLine() {
@@ -410,7 +469,7 @@
         (lv.next ? `，再 ${lv.next.at - total} 颗升级！` : '，已经封顶啦！');
     }
     const r = Math.random();
-    return fill(pick(r < 0.4 ? WORK : r < 0.8 ? ROAST : SOUP));
+    return r < 0.35 ? fill(pick(WORK)) : r < 0.8 ? roastLine() : soupLine();
   }
 
   let typeTimer;
@@ -937,6 +996,17 @@
           <button class="font-opt ${S.settings.font !== 'xl' ? 'on' : ''}" data-action="set-font" data-font="large" style="font-size:1rem">正常</button>
           <button class="font-opt ${S.settings.font === 'xl' ? 'on' : ''}" data-action="set-font" data-font="xl" style="font-size:1.2rem">大一点</button>
         </div>
+      </section>
+
+      <section class="card ${A()}">
+        <div class="card-title">🗂️ 睿睿的小本本</div>
+        <div class="card-sub">写上同事的名字，睿睿吐槽时会点名。名字只存在这台手机里，用顿号隔开。</div>
+        <label class="f-label" for="ppl-bad">😈 坏人（可以随便骂）</label>
+        <input class="text-input" style="margin-top:0" id="ppl-bad" data-people="bad" maxlength="60" placeholder="例如：张三、李四" value="${esc(people('bad').join('、'))}">
+        <label class="f-label" for="ppl-mixed">🌗 时好时坏</label>
+        <input class="text-input" style="margin-top:0" id="ppl-mixed" data-people="mixed" maxlength="60" placeholder="例如：王五" value="${esc(people('mixed').join('、'))}">
+        <label class="f-label" for="ppl-good">😇 好人</label>
+        <input class="text-input" style="margin-top:0" id="ppl-good" data-people="good" maxlength="60" placeholder="例如：赵六" value="${esc(people('good').join('、'))}">
       </section>
 
       <section class="card ${A()}">
@@ -1543,8 +1613,8 @@
         say(nextRuiLine());
         break;
       }
-      case 'rui-roast': say(fill(pick(ROAST))); break;
-      case 'rui-soup': say(fill(pick(SOUP))); break;
+      case 'rui-roast': say(roastLine()); break;
+      case 'rui-soup': say(soupLine()); break;
       case 'period-start': startPeriod(); break;
       case 'period-end': endPeriod(); break;
       case 'period-edit': editPeriods(); break;
@@ -1577,6 +1647,10 @@
   document.addEventListener('change', e => {
     if (e.target.id === 'set-nick') {
       setNicknames(e.target.value); e.target.value = S.settings.nicknames.join('、'); save(); toast('睿睿记住啦 💗');
+    } else if (e.target.dataset && e.target.dataset.people) {
+      const list = e.target.value.split(/[,，、;；\s]+/).map(x => x.trim().slice(0, 12)).filter(Boolean).slice(0, 12);
+      S.settings.people[e.target.dataset.people] = list;
+      e.target.value = list.join('、'); save(); toast('睿睿记在小本本上了 📓');
     } else if (e.target.id === 'import-file') {
       importData(e.target.files[0]); e.target.value = '';
     }
