@@ -110,6 +110,7 @@
       periods: [],
       log: {},
       timers: {},
+      beat: { total: 0, tally: {}, ti: 0, mute: false },
       nextColor: 1,
     };
   }
@@ -123,6 +124,7 @@
     s.periods = Array.isArray(s.periods) ? s.periods : [];
     s.log = s.log || {};
     s.timers = s.timers || {};
+    s.beat = Object.assign({ total: 0, tally: {}, ti: 0, mute: false }, s.beat || {});
     if (typeof s.nextColor !== 'number') s.nextColor = s.habits.length % COLORS.length;
     return s;
   }
@@ -325,12 +327,223 @@
       `</svg>`;
   }
 
+  // ---------- 打手：睿睿 wakes up and beats up whoever upset her ----------
+  // Villain names come from her own lists in settings (never from this file); otherwise generic ones.
+  const FOE_GENERIC = ['坏老板', '甩锅侠', '抢功劳的', 'PUA大师', '画饼王', '已读不回', '拖堂会议', '收到哥'];
+  const NOBODY_LINES = ['那就好～有事随时叫醒我哦，我再睡会儿…… 😴', '没人欺负{n}就好，睿睿接着睡啦，梦里见～ 💤', '好嘞，{n}开开心心的，睿睿继续做梦了 🌙'];
+  const FIGHT_LINES = ['敢欺负{n}？吃我一棍！', '{v}是吧？站住别跑！', '谁给{v}的胆子欺负{n}的？！', '{v}，今天让你知道{n}是有人罩着的！'];
+  const RAGE_LINES = ['打呀打呀打呀！🔥', '还敢欺负{n}？！统统打跑！🔥', '睿睿生气了，后果很严重！🔥', '一个都别想跑！🔥', '{v}也有份？一起打！🔥'];
+  const ASK_LINES = ['打跑了！还有人欺负你吗？', '哼，跑得真快！还有谁？', '呼……还有人欺负{n}吗？'];
+  const CALM_LINES = ['出气了吧？以后谁欺负你，就叫醒我 💪', '坏人都打跑啦，{n}笑一个～ 睿睿回去睡觉了', '有睿睿在，谁也别想欺负{n}！晚安…… 😪'];
+  const OUCH = ['哎哟！', '别打了！', '我错了！', '嗷～', '饶命！', '不敢了！'];
+  const POW = ['啪！', '砰！', '咚！', '💥', '啪啪！'];
+  const F = { stage: 'sleep', round: 0, foes: [], loop: null, timers: [] };
+  const fightTitle = () => S.settings.nicknames[(S.beat.ti || 0) % S.settings.nicknames.length];
+  const later = (fn, ms) => F.timers.push(setTimeout(fn, ms));
+
+  function fightStop() {
+    clearInterval(F.loop); F.loop = null;
+    F.timers.forEach(clearTimeout); F.timers = [];
+  }
+
+  const FOE_SVG = `<svg viewBox="0 0 60 80" aria-hidden="true">
+    <ellipse cx="30" cy="77" rx="16" ry="3" fill="#000" opacity=".1"/>
+    <path d="M11 77 Q11 50 30 50 Q49 50 49 77 Z" fill="#5d6675"/>
+    <path d="M24 50 L30 58 L36 50 Z" fill="#fff"/><path d="M28.5 55 h3 l1.2 12 -2.7 3 -2.7 -3 z" fill="#e34948"/>
+    <circle cx="30" cy="31" r="17" fill="#f2cfb1"/>
+    <path d="M13 31 Q13 13 30 13 Q47 13 47 28 Q40 19 26 23 Q18 25 13 31 Z" fill="#3b3b3b"/>
+    <g class="f-mean"><path d="M19.5 26.5 L27 29.5 M40.5 26.5 L33 29.5" stroke="#222" stroke-width="2.6" stroke-linecap="round"/>
+      <circle cx="24" cy="33" r="2.2" fill="#222"/><circle cx="36" cy="33" r="2.2" fill="#222"/>
+      <path d="M24 42 Q31 38.5 37 41" stroke="#7a3b2e" stroke-width="2.2" fill="none" stroke-linecap="round"/></g>
+    <g class="f-hurt" stroke="#222" stroke-width="2.4" stroke-linecap="round" fill="none">
+      <path d="M21 30 l6 6 M27 30 l-6 6 M33 30 l6 6 M39 30 l-6 6"/><ellipse cx="30" cy="43" rx="3.5" ry="4" fill="#7a3b2e" stroke="none"/>
+      <path d="M44 17 q4 -6 8 -1" stroke="#7aa5e8"/></g>
+  </svg>`;
+
+  function makeFoes(n) {
+    const bad = people('bad').slice().sort(() => Math.random() - 0.5);
+    const mixed = people('mixed').slice().sort(() => Math.random() - 0.5);
+    const names = n === 1 ? [bad[0] || mixed[0] || pick(FOE_GENERIC)]
+      : [...bad, ...mixed, ...FOE_GENERIC.slice().sort(() => Math.random() - 0.5)].slice(0, n);
+    return names.map(name => ({ name, hp: n === 1 ? 4 : 2 }));
+  }
+
+  let actx = null;
+  function thwack(big) {
+    if (S.beat.mute) return;
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const t = actx.currentTime, len = 0.12;
+      const buf = actx.createBuffer(1, actx.sampleRate * len, actx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
+      const src = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+      src.buffer = buf; f.type = 'bandpass'; f.frequency.value = big ? 700 : 1100; g.gain.value = 0.35;
+      src.connect(f).connect(g).connect(actx.destination); src.start(t);
+    } catch (e) { /* no sound, no problem */ }
+  }
+
+  function fightSay(text) {
+    const b = $('#fight-say');
+    if (!b) return;
+    b.textContent = fill(text.replace(/\{v\}/g, (F.foes.find(f => f.hp > 0) || F.foes[0] || { name: '坏人' }).name));
+    b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop');
+  }
+
+  function fightButtons(list) {
+    const el = $('#fight-btns');
+    if (el) el.innerHTML = list.map(([label, act, cls]) => `<button class="btn ${cls || 'btn-soft'}" data-action="${act}">${label}</button>`).join('');
+  }
+
+  function pose(mood) { const el = $('#fighter'); if (el) el.innerHTML = ruiSVG('', mood); }
+
+  function fightStage(stage) {
+    F.stage = stage;
+    const st = $('#stage');
+    if (!st) return;
+    st.dataset.stage = stage;
+    st.classList.toggle('rage', F.round >= 2 && (stage === 'fight' || stage === 'ask'));
+    $('#fighter').setAttribute('aria-label', stage === 'sleep' ? '点点睿睿，把他叫醒' : '睿睿');
+  }
+
+  function fightSleep() {
+    fightStop();
+    F.round = 0; F.foes = [];
+    $('#foes') && ($('#foes').innerHTML = '');
+    fightStage('sleep'); pose('sleep');
+    fightSay('Zzz…… 睿睿睡着了。被欺负了就点点他，把他叫醒 👆');
+    fightButtons([['⏰ 叫醒睿睿', 'fight-wake', 'btn-primary btn-wide']]);
+    updateFightStats();
+  }
+
+  function fightWake() {
+    if (F.stage !== 'sleep') return;
+    fightStage('wake'); pose('wake');
+    fightSay('哈～欠…… 嗯？');
+    fightButtons([]);
+    later(() => {
+      fightSay('来，你跟我说说谁欺负你了？');
+      fightButtons([['😌 没人欺负我', 'fight-no'], ['😤 有人欺负我', 'fight-yes', 'btn-primary']]);
+    }, 900);
+  }
+
+  function fightNobody() {
+    fightButtons([]);
+    fightSay(pick(NOBODY_LINES));
+    later(() => { pose('sleep'); fightStage('sleep'); }, 1600);
+    later(fightSleep, 3200);
+  }
+
+  function fightRound() {
+    fightStop();
+    F.round++;
+    const n = F.round === 1 ? 1 : F.round === 2 ? 3 : Math.min(6, 5 + (F.round > 4));
+    F.foes = makeFoes(n);
+    fightStage('fight'); pose(F.round >= 2 ? 'rage' : 'fight');
+    $('#foes').innerHTML = F.foes.map((f, i) => `<button class="foe" data-action="fight-hit" data-i="${i}" style="--d:${i * 0.12}s" aria-label="打${esc(f.name)}">
+      <span class="foe-name">${esc(f.name)}</span>${FOE_SVG}<span class="foe-ouch"></span></button>`).join('');
+    fightSay(pick(F.round >= 2 ? RAGE_LINES : FIGHT_LINES));
+    fightButtons([]);
+    $('#fight-btns').innerHTML = '<div class="fight-hint">👆 点小人，睿睿打得更狠！</div>';
+    later(() => { F.loop = setInterval(() => autoHit(), F.round >= 2 ? 420 : 640); }, 500 + n * 120);
+  }
+
+  function autoHit() {
+    const i = F.foes.findIndex(f => f.hp > 0);
+    if (i >= 0) hitFoe(i);
+  }
+
+  function hitFoe(i) {
+    const f = F.foes[i], el = $(`.foe[data-i="${i}"]`), me = $('#fighter');
+    if (!f || f.hp <= 0 || !el || F.stage !== 'fight') return;
+    me.classList.remove('swing'); void me.offsetWidth; me.classList.add('swing');
+    f.hp--;
+    thwack(f.hp <= 0);
+    el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit');
+    el.querySelector('.foe-ouch').textContent = pick(OUCH);
+    const pow = document.createElement('span');
+    pow.className = 'pow'; pow.textContent = pick(POW);
+    const box = el.getBoundingClientRect(), stage = $('#stage').getBoundingClientRect();
+    pow.style.left = (box.left - stage.left + box.width * (0.1 + Math.random() * 0.4)) + 'px';
+    pow.style.top = (box.top - stage.top + box.height * (0.25 + Math.random() * 0.25)) + 'px';
+    $('#stage').appendChild(pow);
+    setTimeout(() => pow.remove(), 700);
+    if (F.round >= 2 && Math.random() < 0.3) fightSay(pick(RAGE_LINES));
+    if (f.hp > 0) return;
+    el.classList.add('gone');
+    S.beat.total++;
+    S.beat.tally[f.name] = (S.beat.tally[f.name] || 0) + 1;
+    save();
+    if (F.foes.every(x => x.hp <= 0)) {
+      clearInterval(F.loop); F.loop = null;
+      later(() => {
+        fightStage('ask');
+        fightSay(pick(ASK_LINES));
+        fightButtons([['😌 没了，出气了', 'fight-done'], ['😤 还有！', 'fight-yes', 'btn-primary']]);
+        updateFightStats();
+      }, 800);
+    }
+  }
+
+  function fightDone() {
+    fightButtons([]);
+    fightStage('calm'); pose('wake');
+    $('#foes').innerHTML = '';
+    fightSay(pick(CALM_LINES));
+    later(() => { pose('sleep'); fightStage('sleep'); }, 2000);
+    later(fightSleep, 3600);
+  }
+
+  function updateFightStats() {
+    const el = $('#fight-stats');
+    if (el) el.innerHTML = fightStatsHTML();
+  }
+
+  function fightStatsHTML() {
+    const top = Object.entries(S.beat.tally).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    return `<div class="card-title">🏆 挨打排行榜</div>
+      <div class="card-sub">睿睿已经帮${esc(fightTitle())}打跑了 <b>${S.beat.total}</b> 个坏人</div>
+      ${top.length ? `<ol class="rank">${top.map(([n, c], i) => `<li><span class="rk">${['🥇', '🥈', '🥉', '4', '5'][i]}</span><span class="rn">${esc(n)}</span><span class="rc">挨打 ${c} 次</span></li>`).join('')}</ol>`
+        : '<p class="card-sub" style="margin-top:8px">还没人挨打，说明最近没人欺负你 ☺️</p>'}
+      <p class="card-sub" style="margin-top:10px">坏人名单在「设置 → 睿睿的小本本」里改，只存在这台手机上。</p>`;
+  }
+
+  function viewFight() {
+    fightStop();
+    F.stage = 'sleep'; F.round = 0; F.foes = [];
+    return `<header class="page-head"><h1><button class="title-btn" data-action="fight-title">${esc(fightTitle())}打手 🥊</button></h1>
+        <p>被欺负了？叫醒睿睿，替你出气${S.settings.nicknames.length > 1 ? '（点标题换个叫法）' : ''}</p></header>
+      <section class="card fight-card ${A()}">
+        <div class="stage" id="stage" data-stage="sleep">
+          <span class="moon">🌙</span><span class="star s1">✦</span><span class="star s2">✦</span>
+          <svg class="bed" viewBox="0 0 220 120" aria-hidden="true">
+            <rect x="2" y="18" width="20" height="98" rx="9" fill="#c98f6b"/><rect x="200" y="58" width="16" height="58" rx="7" fill="#c98f6b"/>
+            <rect x="10" y="74" width="202" height="28" rx="8" fill="#fff" stroke="#f0d7df" stroke-width="2"/>
+            <rect x="12" y="100" width="198" height="9" rx="4" fill="#b67d5a"/>
+            <ellipse cx="52" cy="70" rx="34" ry="13" fill="#fff" stroke="#f0d7df" stroke-width="2"/>
+          </svg>
+          <button class="fighter" id="fighter" data-action="fight-wake" aria-label="点点睿睿，把他叫醒">${ruiSVG('', 'sleep')}</button>
+          <svg class="blanket" viewBox="0 0 220 120" aria-hidden="true">
+            <path d="M34 72 Q60 62 90 68 Q130 58 170 66 Q196 62 206 70 L210 104 Q120 112 30 104 Z" fill="#ff9fbf"/>
+            <path d="M34 72 Q60 62 90 68 Q130 58 170 66 Q196 62 206 70" stroke="#ffc2d6" stroke-width="6" fill="none" stroke-linecap="round"/>
+            <g fill="#fff" opacity=".8"><path d="M80 86 c-2-3 -6-1 -4 2 l4 4 4-4 c2-3 -2-5 -4-2z"/><path d="M130 82 c-2-3 -6-1 -4 2 l4 4 4-4 c2-3 -2-5 -4-2z"/>
+              <path d="M176 90 c-2-3 -6-1 -4 2 l4 4 4-4 c2-3 -2-5 -4-2z"/><path d="M106 98 c-1.5-2 -4.5-1 -3 1.5 l3 3 3-3 c1.5-2.5 -1.5-3.5 -3-1.5z"/></g>
+          </svg>
+          <div class="zzz" aria-hidden="true"><span>Z</span><span>z</span><span>z</span></div>
+          <div class="foes" id="foes"></div>
+        </div>
+        <div class="fight-say pop" id="fight-say">Zzz…… 睿睿睡着了。被欺负了就点点他，把他叫醒 👆</div>
+        <div class="fight-btns" id="fight-btns"><button class="btn btn-primary btn-wide" data-action="fight-wake">⏰ 叫醒睿睿</button></div>
+        <button class="link-btn" data-action="fight-mute">${S.beat.mute ? '🔇 音效已关，点这里打开' : '🔊 有音效，点这里关掉'}</button>
+      </section>
+      <section class="card ${A()}" id="fight-stats">${fightStatsHTML()}</section>`;
+  }
+
   // ---------- render ----------
   function render() {
     document.documentElement.dataset.font = S.settings.font === 'xl' ? 'xl' : 'large';
     animIndex = 0;
     const main = $('#main');
-    main.innerHTML = ui.view === 'today' ? viewToday() : ui.view === 'trends' ? viewTrends() : viewSettings();
+    main.innerHTML = ui.view === 'today' ? viewToday() : ui.view === 'fight' ? viewFight() : ui.view === 'trends' ? viewTrends() : viewSettings();
     main.classList.toggle('enter', ui.enter && !reduced);
     ui.enter = false;
     $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.view === ui.view));
@@ -371,7 +584,10 @@
   // ---------- 睿睿 (perm-haired, glasses) ----------
   function ruiSVG(extra = '', mood = '') {
     const shy = mood === 'shy';
+    // 打手 poses: pajamas + nightcap; asleep, just woken, fighting, and fighting with fire in his eyes.
+    const pj = ['sleep', 'wake', 'fight', 'rage'].includes(mood), angry = mood === 'fight' || mood === 'rage';
     const skin = '#ffe1c9', hair = '#33241e', hairHi = '#6a5043';
+    const shirt = pj ? '#8db6ee' : '#4f6fa8', shirtLine = pj ? '#6a93d2' : '#3d5a8c';
     // soft perm: scalloped crown + side-swept fringe, short tapered sides
     const crown = [[36,38,8],[40,29,9],[48,22,9.5],[58,18.5,10],[69,19,10],[79,23,9.5],[86,31,8.5],[88,40,7]]
       .map(([x,y,r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('');
@@ -379,24 +595,52 @@
       .map(([x,y,r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('');
     const curlMarks = [[45,28,-12],[57,23,6],[69,25,-8],[79,30,10],[51,34,4],[63,33,-6],[74,37,8],[41,37,-10]]
       .map(([x,y,r]) => `<path transform="rotate(${r} ${x} ${y})" d="M${x-4} ${y+1.5} q4 -5.5 8 0"/>`).join('');
-    const eyes = shy
+    const flame = x => `<path d="M${x} 69 C${x - 7} 66 ${x - 6} 59 ${x - 2} 54 C${x - 2} 58 ${x + 1} 58 ${x} 52 C${x + 6} 56 ${x + 8} 63 ${x + 4} 67 C${x + 3} 68 ${x + 2} 69 ${x} 69Z" fill="#ff5a1f"/>
+      <path d="M${x} 68 C${x - 3.5} 66 ${x - 3} 62 ${x - 1} 60 C${x} 62 ${x + 1.5} 62 ${x + 1} 58.5 C${x + 4} 61 ${x + 4} 65 ${x + 2} 67Z" fill="#ffd23f"/>`;
+    const eyes = mood === 'sleep'
+      ? `<path d="M40 61 Q45 65.5 50 61" stroke="#2a1f1a" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+         <path d="M70 61 Q75 65.5 80 61" stroke="#2a1f1a" stroke-width="2.8" fill="none" stroke-linecap="round"/>`
+      : mood === 'wake'
+      ? `<ellipse cx="45" cy="63" rx="3.8" ry="2.6" fill="#2a1f1a"/><ellipse cx="75" cy="63" rx="3.8" ry="2.6" fill="#2a1f1a"/>
+         <path d="M39.5 60.5 H50.5 M69.5 60.5 H80.5" stroke="#2a1f1a" stroke-width="2.4" stroke-linecap="round"/>`
+      : mood === 'rage' ? flame(45) + flame(75)
+      : shy
       ? `<path d="M40 61 Q45 56 50 61" stroke="#2a1f1a" stroke-width="3" fill="none" stroke-linecap="round"/>
          <path d="M70 61 Q75 56 80 61" stroke="#2a1f1a" stroke-width="3" fill="none" stroke-linecap="round"/>`
       : `<ellipse class="eye" cx="45" cy="61" rx="4.2" ry="5.2" fill="#2a1f1a"/><ellipse class="eye" cx="75" cy="61" rx="4.2" ry="5.2" fill="#2a1f1a"/>
          <circle cx="46.6" cy="59" r="1.6" fill="#fff"/><circle cx="76.6" cy="59" r="1.6" fill="#fff"/>
          <circle cx="43.7" cy="63" r=".85" fill="#fff" opacity=".8"/><circle cx="73.7" cy="63" r=".85" fill="#fff" opacity=".8"/>`;
-    const brows = shy
+    const brows = angry
+      ? `<path d="M37.5 48 L52 54" stroke="${hair}" stroke-width="3.6" fill="none" stroke-linecap="round"/>
+         <path d="M82.5 48 L68 54" stroke="${hair}" stroke-width="3.6" fill="none" stroke-linecap="round"/>`
+      : shy
       ? `<path d="M39 50.5 Q45 49 51 51" stroke="${hair}" stroke-width="3" fill="none" stroke-linecap="round"/>
          <path d="M69 51 Q75 49 81 50.5" stroke="${hair}" stroke-width="3" fill="none" stroke-linecap="round"/>`
       : `<path d="M39 51.5 Q45 47.5 51.5 50" stroke="${hair}" stroke-width="3" fill="none" stroke-linecap="round"/>
          <path d="M68.5 50 Q75 47.5 81 51.5" stroke="${hair}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
-    const mouth = shy
+    const mouth = angry
+      ? `<rect x="52" y="76" width="16" height="7.5" rx="3.5" fill="#fff" stroke="#a24b3c" stroke-width="2.2"/>
+         <path d="M56.5 76.5v6.5M60 76.5v6.5M63.5 76.5v6.5M52.5 79.7h15" stroke="#a24b3c" stroke-width="1.2"/>`
+      : mood === 'sleep' ? `<ellipse cx="60" cy="80" rx="2.6" ry="2.2" fill="#a24b3c"/>`
+      : mood === 'wake' ? `<ellipse cx="60" cy="80.5" rx="4" ry="5" fill="#a24b3c"/><ellipse cx="60" cy="83" rx="2.4" ry="1.6" fill="#e77b7b"/>`
+      : shy
       ? `<path d="M55 80 Q60 83 65 80" stroke="#a24b3c" stroke-width="2.6" fill="none" stroke-linecap="round"/>`
       : `<path class="mouth" d="M53 79 Q62 84.5 69.5 77" stroke="#a24b3c" stroke-width="2.7" fill="none" stroke-linecap="round"/>`;
     const hearts = shy ? `<g class="hearts" fill="#ff5c8a">
         <path d="M101 22 c-3-5 -10-2 -7 3 l7 7 7-7 c3-5 -4-8 -7-3z"/>
         <path d="M16 30 c-2-4 -8-2 -6 2 l6 6 6-6 c2-4 -4-6 -6-2z" opacity=".8"/></g>` : '';
-    const arms = shy
+    const sleeve = c => `stroke="${c}" stroke-width="10" stroke-linecap="round" fill="none"`;
+    const arms = angry
+      ? `<path d="M34 112 Q29 122 31 134" ${sleeve(shirt)}/>
+         <g class="bat-arm"><g transform="rotate(24 103.5 86)"><rect x="99.5" y="32" width="8.5" height="58" rx="4.2" fill="#c0844a"/>
+           <rect x="99.5" y="32" width="8.5" height="10" rx="4.2" fill="#a46a36"/><path d="M99.5 70h8.5M99.5 74h8.5" stroke="#fff" stroke-width="2.2" opacity=".9"/></g>
+           <path d="M87 112 Q101 104 103 90" ${sleeve(shirt)}/><circle cx="103.5" cy="86" r="6.5" fill="${skin}"/></g>`
+      : mood === 'wake'
+      ? `<path d="M34 112 Q29 122 31 134" ${sleeve(shirt)}/>
+         <path d="M87 112 Q98 98 88 80" ${sleeve(shirt)}/><circle cx="86" cy="76" r="6.5" fill="${skin}"/>`
+      : mood === 'sleep'
+      ? `<path d="M34 112 Q29 122 31 134" ${sleeve(shirt)}/><path d="M86 112 Q91 122 89 134" ${sleeve(shirt)}/>`
+      : shy
       ? `<path d="M34 114 Q30 96 38 86" stroke="#4f6fa8" stroke-width="10" stroke-linecap="round" fill="none"/>
          <circle cx="39" cy="83" r="6" fill="${skin}"/>
          <path d="M86 114 Q90 96 82 86" stroke="#4f6fa8" stroke-width="10" stroke-linecap="round" fill="none"/>
@@ -407,9 +651,11 @@
     return `<svg class="rui ${extra} ${shy ? 'shy' : ''}" viewBox="0 0 120 142" aria-hidden="true">
       <ellipse cx="60" cy="138" rx="30" ry="4" fill="#000" opacity=".08"/>
       <rect x="53.5" y="86" width="13" height="18" rx="5" fill="#f3c9a9"/>
-      <path d="M26 138 Q27 106 60 104 Q93 106 94 138 Z" fill="#4f6fa8"/>
-      <path d="M50 104 L60 118 L70 104 Z" fill="#fff"/>
-      <path d="M50 104 L44 116 M70 104 L76 116" stroke="#3d5a8c" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M26 138 Q27 106 60 104 Q93 106 94 138 Z" fill="${shirt}"/>
+      ${pj ? `<g fill="#fff" opacity=".85"><circle cx="40" cy="122" r="2.2"/><circle cx="80" cy="126" r="2.2"/><circle cx="48" cy="133" r="1.8"/><circle cx="73" cy="114" r="1.8"/></g>
+        <path d="M50 104 L60 115 L70 104 Z" fill="#dce9fb"/><circle cx="60" cy="122" r="1.9" fill="#fff"/><circle cx="60" cy="130" r="1.9" fill="#fff"/>`
+      : `<path d="M50 104 L60 118 L70 104 Z" fill="#fff"/>`}
+      <path d="M50 104 L44 116 M70 104 L76 116" stroke="${shirtLine}" stroke-width="2.2" stroke-linecap="round"/>
       ${arms}
       <g class="rui-head">
         <ellipse cx="29.5" cy="63" rx="5.5" ry="7" fill="#f7cbab"/><ellipse cx="90.5" cy="63" rx="5.5" ry="7" fill="#f7cbab"/>
@@ -430,7 +676,14 @@
         <ellipse cx="38" cy="76" rx="${shy ? 7.5 : 5}" ry="${shy ? 4.5 : 3}" fill="#ff9aa8" opacity="${shy ? 0.8 : 0.45}"/>
         <ellipse cx="82" cy="76" rx="${shy ? 7.5 : 5}" ry="${shy ? 4.5 : 3}" fill="#ff9aa8" opacity="${shy ? 0.8 : 0.45}"/>
         ${mouth}
+        ${pj ? `<g transform="translate(13 -10) scale(.8)"><path d="M30 47 Q28 20 54 13 Q80 8 95 25 Q104 37 107 55 Q98 44 89 41 Q70 33 30 47Z" fill="#7aa5e8"/>
+          <g fill="#ffe27a"><circle cx="52" cy="25" r="2"/><circle cx="72" cy="20" r="1.7"/><circle cx="86" cy="31" r="1.6"/></g>
+          <path d="M29 47 Q58 30 90 42" stroke="#fff" stroke-width="7" fill="none" stroke-linecap="round"/>
+          <circle class="pom" cx="107" cy="57" r="6.5" fill="#fff"/></g>` : ''}
+        ${mood === 'rage' ? `<ellipse cx="38" cy="76" rx="8" ry="4.5" fill="#ff5a5a" opacity=".55"/><ellipse cx="82" cy="76" rx="8" ry="4.5" fill="#ff5a5a" opacity=".55"/>` : ''}
       </g>
+      ${mood === 'rage' ? `<g class="anger" stroke="#e8203a" stroke-width="3" fill="none" stroke-linecap="round">
+        <path d="M14 30 q5 0 5 -5"/><path d="M24 25 q0 5 5 5"/><path d="M14 36 q5 0 5 5"/><path d="M29 36 q-5 0 -5 5"/></g>` : ''}
       ${hearts}
     </svg>`;
   }
@@ -515,6 +768,7 @@
       <div class="bubble-actions">
         <button class="mini-btn" data-action="rui-roast">🗯️ 帮我骂两句</button>
         <button class="mini-btn" data-action="rui-soup">🍵 来碗鸡汤</button>
+        <button class="mini-btn" data-action="go-fight">🥊 有人欺负我</button>
       </div>
       <div class="flower-bar">${day === todayKey() ? '今天' : '这天'} <b>💗 × ${heartsOn(day)}</b><span>· 一共 ${total} 颗</span><span class="lv">${lv.icon} ${lv.name}</span></div>
     </section>`;
@@ -1567,11 +1821,19 @@
     const id = el.dataset.id;
     switch (el.dataset.action) {
       case 'tab':
-        if (ui.view !== el.dataset.view) { ui.view = el.dataset.view; ui.enter = true; }
+        if (ui.view !== el.dataset.view) { fightStop(); ui.view = el.dataset.view; ui.enter = true; }
         if (ui.view === 'today') { ui.day = todayKey(); ui.ruiFresh = true; }
         render(); scrollTo(0, 0);
         break;
       case 'med': toggleMed(id, el.dataset.slot); break;
+      case 'go-fight': fightStop(); ui.view = 'fight'; ui.enter = true; render(); scrollTo(0, 0); fightWake(); break;
+      case 'fight-wake': fightWake(); break;
+      case 'fight-no': fightNobody(); break;
+      case 'fight-yes': fightRound(); break;
+      case 'fight-hit': hitFoe(+el.dataset.i); break;
+      case 'fight-done': fightDone(); break;
+      case 'fight-title': S.beat.ti = ((S.beat.ti || 0) + 1) % S.settings.nicknames.length; save(); fightStop(); render(); break;
+      case 'fight-mute': S.beat.mute = !S.beat.mute; save(); el.textContent = S.beat.mute ? '🔇 音效已关，点这里打开' : '🔊 有音效，点这里关掉'; break;
       case 'habit-add': addToHabit(getHabit(id), +el.dataset.n); break;
       case 'habit-set': openSetValue(getHabit(id)); break;
       case 'habit-check': {

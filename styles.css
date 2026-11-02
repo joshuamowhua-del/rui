@@ -473,3 +473,73 @@ input { font: inherit; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- 打手 ---------- */
+.title-btn { font: inherit; font-weight: 800; padding: 0; text-align: left; }
+.fight-card { padding: 12px; overflow: hidden; }
+.stage {
+  position: relative; height: 280px; border-radius: 20px; overflow: hidden;
+  background: linear-gradient(#3b3f73, #6b5c9e 70%, #8b6fa8); transition: background .6s;
+}
+.stage[data-stage="fight"], .stage[data-stage="ask"], .stage[data-stage="calm"] { background: linear-gradient(#ffe9d6, #ffd2dc); }
+.stage.rage { animation: ragePulse 1s ease-in-out infinite; }
+@keyframes ragePulse { 0%, 100% { background: linear-gradient(#ffd0c2, #ffb3b3); } 50% { background: linear-gradient(#ffb0a0, #ff8f8f); } }
+.stage .moon { position: absolute; right: 18px; top: 12px; font-size: 2rem; transition: opacity .5s; }
+.stage .star { position: absolute; color: #fff7c2; font-size: .9rem; animation: twinkle 2.4s ease-in-out infinite; transition: opacity .5s; }
+.stage .s1 { left: 52%; top: 22px; } .stage .s2 { left: 70%; top: 70px; animation-delay: 1.1s; }
+@keyframes twinkle { 50% { opacity: .2; } }
+.stage:not([data-stage="sleep"]):not([data-stage="wake"]) :is(.moon, .star) { opacity: 0; }
+.bed, .blanket { position: absolute; left: 0; bottom: 6px; width: 66%; transition: transform .6s, opacity .6s; }
+.blanket { z-index: 3; pointer-events: none; }
+.fighter {
+  position: absolute; z-index: 2; left: 8%; bottom: 52px; width: 31%; padding: 0;
+  transform-origin: 50% 90%; transition: left .5s cubic-bezier(.3, 1.4, .5, 1), bottom .5s cubic-bezier(.3, 1.4, .5, 1), transform .5s, width .5s;
+}
+.fighter .rui { animation: none; }
+.stage[data-stage="sleep"] .fighter { transform: rotate(-14deg) translateY(6px); }
+.stage[data-stage="sleep"] .fighter .rui { animation: breathe 2.6s ease-in-out infinite; }
+@keyframes breathe { 50% { transform: scale(1.025, .985); } }
+.stage[data-stage="wake"] .fighter { animation: sitUp .5s ease-out; }
+@keyframes sitUp { 0% { transform: rotate(-14deg) translateY(6px); } 60% { transform: rotate(4deg) translateY(-10px); } 100% { transform: none; } }
+.stage:is([data-stage="fight"], [data-stage="ask"], [data-stage="calm"]) .fighter { left: 1%; bottom: 4px; width: 36%; }
+.stage:is([data-stage="fight"], [data-stage="ask"], [data-stage="calm"]) :is(.bed, .blanket) { transform: translateX(-62%) scale(.8); opacity: .35; }
+.stage.rage .fighter .rui { animation: tremble .18s linear infinite; }
+@keyframes tremble { 25% { transform: translate(1px, -1px); } 75% { transform: translate(-1px, 1px); } }
+.fighter .bat-arm { transform-box: view-box; transform-origin: 87px 112px; }
+.fighter.swing { animation: lunge .3s ease-out; }
+.fighter.swing .bat-arm { animation: bat .3s ease-in-out; }
+@keyframes lunge { 50% { transform: translateX(16px); } }
+@keyframes bat { 0% { transform: rotate(0); } 30% { transform: rotate(-35deg); } 65% { transform: rotate(75deg); } 100% { transform: rotate(0); } }
+.zzz { position: absolute; left: 31%; top: 70px; z-index: 4; color: #fff; font-weight: 800; pointer-events: none; transition: opacity .3s; }
+.zzz span { position: absolute; animation: zfloat 2.4s ease-in infinite; opacity: 0; }
+.zzz span:nth-child(1) { font-size: 1.1rem; } .zzz span:nth-child(2) { font-size: 1.4rem; animation-delay: .8s; } .zzz span:nth-child(3) { font-size: 1.8rem; animation-delay: 1.6s; }
+@keyframes zfloat { 0% { transform: translate(0, 0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translate(34px, -60px); opacity: 0; } }
+.stage:not([data-stage="sleep"]) .zzz { opacity: 0; }
+.foes { position: absolute; right: 2%; bottom: 4px; width: 60%; z-index: 4; display: flex; flex-wrap: wrap-reverse; justify-content: flex-end; align-content: flex-start; gap: 0 4px; }
+.foe { width: 31%; max-width: 76px; padding: 0; position: relative; animation: dropIn .5s cubic-bezier(.3, 1.5, .5, 1) both; animation-delay: var(--d); }
+.foe svg { width: 100%; display: block; }
+.foe-name { display: block; max-width: 100%; margin: 0 auto 2px; width: max-content; padding: 2px 7px; border-radius: 8px; background: #2b2723; color: #fff;
+  font-size: .72rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.foe .f-hurt { display: none; }
+.foe.hit .f-hurt { display: inline; } .foe.hit .f-mean { display: none; }
+.foe.hit svg { animation: shake .3s; }
+.foe-ouch { position: absolute; left: 50%; top: -18px; transform: translateX(-50%); white-space: nowrap; font-size: .8rem; font-weight: 800; color: #c43535; opacity: 0; }
+.foe.hit .foe-ouch { animation: ouch .7s ease-out; }
+.foe.gone { animation: flyAway .7s ease-in forwards; pointer-events: none; }
+@keyframes dropIn { from { transform: translateY(-260px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes shake { 20% { transform: translateX(6px) rotate(8deg); } 45% { transform: translateX(-5px) rotate(-6deg); } 70% { transform: translateX(3px) rotate(3deg); } }
+@keyframes ouch { 0% { opacity: 0; transform: translate(-50%, 6px); } 25% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -14px); } }
+@keyframes flyAway { 0% { transform: none; opacity: 1; } 100% { transform: translate(140px, -230px) rotate(600deg) scale(.4); opacity: 0; } }
+.pow { position: absolute; z-index: 6; font-size: 1.5rem; font-weight: 900; color: #e0003a; -webkit-text-stroke: 1px #fff; text-shadow: 0 2px 0 #fff, 0 0 8px #fff; pointer-events: none; animation: powIn .7s ease-out forwards; }
+@keyframes powIn { 0% { transform: scale(.3) rotate(-15deg); opacity: 0; } 25% { transform: scale(1.3) rotate(6deg); opacity: 1; } 100% { transform: scale(1) translateY(-18px); opacity: 0; } }
+.fight-say { margin: 12px 2px 0; padding: 12px 14px; background: var(--accent-soft); border-radius: 16px; font-size: 1.1rem; font-weight: 800; line-height: 1.45; min-height: 3.2em; }
+.fight-say.pop { animation: pop .35s ease-out; }
+.fight-btns { display: flex; gap: 10px; margin-top: 12px; min-height: 3.1rem; }
+.fight-btns .btn { flex: 1; white-space: nowrap; font-size: 1rem; padding-left: .3rem; padding-right: .3rem; }
+.fight-hint { flex: 1; text-align: center; align-self: center; color: var(--muted); font-weight: 800; }
+.rank { list-style: none; padding: 0; margin: 10px 0 0; }
+.rank li { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); font-weight: 700; }
+.rank li:last-child { border-bottom: 0; }
+.rank .rk { width: 1.8rem; text-align: center; font-size: 1.2rem; }
+.rank .rn { flex: 1; font-size: 1.05rem; }
+.rank .rc { color: var(--accent-ink); }
