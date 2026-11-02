@@ -96,8 +96,8 @@ input { font: inherit; }
 .rui-btn { width: 5.6rem; flex: none; padding: 0; }
 .rui { width: 100%; height: auto; display: block; overflow: visible; animation: ruiFloat 3.2s ease-in-out infinite; }
 .rui .eye { transform-box: fill-box; transform-origin: center; animation: blink 4.6s infinite; }
-.rui .arm { transform-box: view-box; transform-origin: 87px 109px; }
-.rui .rui-head { transform-box: view-box; transform-origin: 60px 97px; }
+.rui .arm { transform-box: fill-box; transform-origin: 0% 100%; }
+.rui .rui-head { transform-box: fill-box; transform-origin: 50% 85%; }
 .rui.wave .arm { animation: wave 1s ease-in-out; }
 .rui.talk .rui-head { animation: nod .55s ease-in-out 2; }
 .rui.jump { animation: jump .7s ease-out 2; }
@@ -474,48 +474,93 @@ input { font: inherit; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-/* ---------- 打手 ---------- */
-.title-btn { font: inherit; font-weight: 800; padding: 0; text-align: left; }
-.fight-card { padding: 12px; overflow: hidden; }
-.stage {
-  position: relative; height: 280px; border-radius: 20px; overflow: hidden;
-  background: linear-gradient(#3b3f73, #6b5c9e 70%, #8b6fa8); transition: background .6s;
+/* ---------- 睿睿小窝 ---------- */
+.room-card { padding: 12px; overflow: hidden; }
+.needs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin: 2px 2px 10px; }
+.need { display: flex; align-items: center; gap: 5px; font-size: .85rem; font-weight: 800; color: var(--ink2); }
+.n-ic { font-size: 1rem; } .n-nm { flex: none; }
+.n-bar { flex: 1; height: 9px; border-radius: 5px; background: #f3e4ea; overflow: hidden; }
+.n-bar i { display: block; height: 100%; border-radius: 5px; background: #5bbf8a; transition: width .5s; }
+.need.low .n-bar i { background: #e85d75; }
+.need.low { color: #c43535; animation: needBlink 1.4s ease-in-out infinite; }
+@keyframes needBlink { 50% { opacity: .55; } }
+.n-v { width: 1.7rem; text-align: right; font-variant-numeric: tabular-nums; font-size: .8rem; color: var(--muted); }
+.room {
+  position: relative; height: 300px; border-radius: 20px; overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+  background: linear-gradient(#ffe6ee 0 68%, #e9c3a5 68% 100%);
 }
-.stage[data-stage="fight"], .stage[data-stage="ask"], .stage[data-stage="calm"] { background: linear-gradient(#ffe9d6, #ffd2dc); }
-.stage.rage { animation: ragePulse 1s ease-in-out infinite; }
-@keyframes ragePulse { 0%, 100% { background: linear-gradient(#ffd0c2, #ffb3b3); } 50% { background: linear-gradient(#ffb0a0, #ff8f8f); } }
-.stage .moon { position: absolute; right: 18px; top: 12px; font-size: 2rem; transition: opacity .5s; }
-.stage .star { position: absolute; color: #fff7c2; font-size: .9rem; animation: twinkle 2.4s ease-in-out infinite; transition: opacity .5s; }
-.stage .s1 { left: 52%; top: 22px; } .stage .s2 { left: 70%; top: 70px; animation-delay: 1.1s; }
-@keyframes twinkle { 50% { opacity: .2; } }
-.stage:not([data-stage="sleep"]):not([data-stage="wake"]) :is(.moon, .star) { opacity: 0; }
-.bed, .blanket { position: absolute; left: 0; bottom: 6px; width: 66%; transition: transform .6s, opacity .6s; }
-.blanket { z-index: 3; pointer-events: none; }
-.fighter {
-  position: absolute; z-index: 2; left: 8%; bottom: 52px; width: 31%; padding: 0;
-  transform-origin: 50% 90%; transition: left .5s cubic-bezier(.3, 1.4, .5, 1), bottom .5s cubic-bezier(.3, 1.4, .5, 1), transform .5s, width .5s;
-}
-.fighter .rui { animation: none; }
-.stage[data-stage="sleep"] .fighter { transform: rotate(-14deg) translateY(6px); }
-.stage[data-stage="sleep"] .fighter .rui { animation: breathe 2.6s ease-in-out infinite; }
+.room::after { content: ''; position: absolute; left: 0; right: 0; top: 68%; height: 3px; background: #d9ab8a; }
+.room.night { background: linear-gradient(#e7dcf3 0 68%, #d7b79c 68% 100%); }
+.window { position: absolute; right: 8%; top: 16px; width: 78px; height: 64px; border-radius: 10px; border: 5px solid #fff;
+  background: linear-gradient(#bfe3ff, #e8f6ff); display: flex; align-items: center; justify-content: center; font-size: 1.6rem;
+  box-shadow: 0 2px 0 #f0cad6; }
+.window::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 4px; margin-left: -2px; background: #fff; }
+.room.night .window { background: linear-gradient(#2d2f6b, #5a4f97); }
+.frame { position: absolute; left: 44%; top: 26px; width: 44px; height: 38px; border-radius: 6px; border: 4px solid #e8b06a; background: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 1.1rem; transform: rotate(-4deg); }
+.rug { position: absolute; left: 32%; right: 6%; bottom: 6px; height: 26px; border-radius: 50%; background: #ffd0dd; box-shadow: inset 0 0 0 5px #ffbcd0; }
+.bed, .blanket { position: absolute; left: -3%; bottom: 2px; width: 64%; transition: opacity .5s, transform .5s; }
+.blanket { z-index: 3; pointer-events: none; opacity: 0; }
+.room[data-stage="sleep"] .blanket, .room[data-stage="wake"] .blanket { opacity: 1; }
+.room[data-stage="sleep"] .folded, .room[data-stage="wake"] .folded { opacity: 0; }
+.room[data-stage="sleep"]::before { content: ''; position: absolute; inset: 0; z-index: 4; background: rgba(30, 28, 80, .38); pointer-events: none; }
+.tub { position: absolute; left: 26%; bottom: 6px; width: 50%; z-index: 3; opacity: 0; transform: translateY(30px); transition: opacity .4s, transform .4s; pointer-events: none; }
+.tub svg { width: 100%; display: block; }
+.room[data-stage="bath"] .tub { opacity: 1; transform: none; }
+.pet { position: absolute; z-index: 2; width: 37%; touch-action: none; cursor: pointer; transform-origin: 50% 95%; }
+.pet .rui { animation: none; }
+.pet.flip .pet-body { scale: -1 1; }
+.pet.walking .pet-body .rui { animation: walkBob .38s ease-in-out infinite; }
+.rui :is(.leg-l, .leg-r) { transform-box: fill-box; transform-origin: 50% 0; }
+.pet.walking .rui .leg-l { animation: step .38s ease-in-out infinite; }
+.pet.walking .rui .leg-r { animation: step .38s ease-in-out infinite reverse; }
+@keyframes step { 0%, 100% { transform: rotate(14deg); } 50% { transform: rotate(-14deg); } }
+@keyframes walkBob { 50% { transform: translateY(-5px) rotate(2deg); } }
+.pet.lying { transform: rotate(-14deg); }
+.pet.lying .rui { animation: breathe 2.6s ease-in-out infinite; }
 @keyframes breathe { 50% { transform: scale(1.025, .985); } }
-.stage[data-stage="wake"] .fighter { animation: sitUp .5s ease-out; }
-@keyframes sitUp { 0% { transform: rotate(-14deg) translateY(6px); } 60% { transform: rotate(4deg) translateY(-10px); } 100% { transform: none; } }
-.stage:is([data-stage="fight"], [data-stage="ask"], [data-stage="calm"]) .fighter { left: 1%; bottom: 4px; width: 36%; }
-.stage:is([data-stage="fight"], [data-stage="ask"], [data-stage="calm"]) :is(.bed, .blanket) { transform: translateX(-62%) scale(.8); opacity: .35; }
-.stage.rage .fighter .rui { animation: tremble .18s linear infinite; }
-@keyframes tremble { 25% { transform: translate(1px, -1px); } 75% { transform: translate(-1px, 1px); } }
-.fighter .bat-arm { transform-box: view-box; transform-origin: 87px 112px; }
-.fighter.swing { animation: lunge .3s ease-out; }
-.fighter.swing .bat-arm { animation: bat .3s ease-in-out; }
-@keyframes lunge { 50% { transform: translateX(16px); } }
-@keyframes bat { 0% { transform: rotate(0); } 30% { transform: rotate(-35deg); } 65% { transform: rotate(75deg); } 100% { transform: rotate(0); } }
-.zzz { position: absolute; left: 31%; top: 70px; z-index: 4; color: #fff; font-weight: 800; pointer-events: none; transition: opacity .3s; }
+.room[data-stage="wake"] .pet { animation: sitUp .5s ease-out forwards; }
+@keyframes sitUp { 0% { transform: rotate(-14deg); } 60% { transform: rotate(4deg) translateY(-10px); } 100% { transform: none; } }
+.pet.held { z-index: 6; }
+.pet.held .rui { animation: dangle .5s ease-in-out infinite; transform-origin: 50% 10%; }
+@keyframes dangle { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+.pet.giggle .pet-body { animation: giggle .5s; }
+@keyframes giggle { 20%, 60% { transform: translateX(-4px) rotate(-4deg); } 40%, 80% { transform: translateX(4px) rotate(4deg); } }
+.pet.dance .pet-body { animation: danceSpin 1.3s ease-in-out 2; }
+@keyframes danceSpin { 25% { transform: translateY(-12px) rotate(-12deg); } 50% { transform: scaleX(-1) translateY(0); } 75% { transform: scaleX(-1) translateY(-12px) rotate(12deg); } }
+.rui .chomp { transform-box: fill-box; transform-origin: center; animation: chomp .25s ease-in-out infinite; }
+@keyframes chomp { 50% { transform: scaleY(.2); } }
+.rui .dizzy-stars { transform-box: view-box; transform-origin: 60px 40px; animation: spin 1.2s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.think { position: absolute; left: 50%; bottom: 100%; transform: translate(-30%, 6px); width: max-content; max-width: 200px; z-index: 5;
+  background: #fff; border-radius: 16px; padding: 7px 11px; font-size: .85rem; font-weight: 800; line-height: 1.35; color: var(--ink);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .1); opacity: 0; transition: opacity .3s, transform .3s; pointer-events: none; white-space: normal; }
+.think.show { opacity: 1; transform: translate(-30%, -4px); }
+.think::after { content: ''; position: absolute; left: 24%; top: 100%; border: 7px solid transparent; border-top-color: #fff; }
+.zzz { position: absolute; left: 34%; top: 92px; z-index: 5; color: #fff; font-weight: 800; pointer-events: none; transition: opacity .3s; }
 .zzz span { position: absolute; animation: zfloat 2.4s ease-in infinite; opacity: 0; }
 .zzz span:nth-child(1) { font-size: 1.1rem; } .zzz span:nth-child(2) { font-size: 1.4rem; animation-delay: .8s; } .zzz span:nth-child(3) { font-size: 1.8rem; animation-delay: 1.6s; }
 @keyframes zfloat { 0% { transform: translate(0, 0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translate(34px, -60px); opacity: 0; } }
-.stage:not([data-stage="sleep"]) .zzz { opacity: 0; }
-.foes { position: absolute; right: 2%; bottom: 4px; width: 60%; z-index: 4; display: flex; flex-wrap: wrap-reverse; justify-content: flex-end; align-content: flex-start; gap: 0 4px; }
+.room:not([data-stage="sleep"]) .zzz { opacity: 0; }
+.fx { position: absolute; z-index: 7; pointer-events: none; font-size: 1.3rem; animation: fxUp 1s ease-out forwards; }
+@keyframes fxUp { 0% { transform: translate(-50%, 0) scale(.5); opacity: 0; } 20% { transform: translate(-50%, -6px) scale(1.15); opacity: 1; } 100% { transform: translate(-50%, -40px) scale(1); opacity: 0; } }
+.fx.bub { width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, #d8efff 60%, #a9d6fb);
+  border: 1.5px solid #fff; animation: bubUp 1.1s ease-out forwards; }
+@keyframes bubUp { 0% { transform: translate(-50%, 0) scale(.3); opacity: 0; } 25% { opacity: 1; } 100% { transform: translate(-50%, -34px) scale(1.4); opacity: 0; } }
+.fx.pow { font-size: 1.5rem; font-weight: 900; color: #e0003a; -webkit-text-stroke: 1px #fff; text-shadow: 0 2px 0 #fff, 0 0 8px #fff; animation: powIn .7s ease-out forwards; }
+@keyframes powIn { 0% { transform: scale(.3) rotate(-15deg); opacity: 0; } 25% { transform: scale(1.3) rotate(6deg); opacity: 1; } 100% { transform: scale(1) translateY(-18px); opacity: 0; } }
+.fly-food { position: absolute; z-index: 7; font-size: 2.2rem; transition: left .6s cubic-bezier(.3, 0, .5, 1), top .6s cubic-bezier(.2, -0.6, .6, 1), transform .6s; pointer-events: none; }
+.room.rage { animation: ragePulse 1s ease-in-out infinite; }
+@keyframes ragePulse { 0%, 100% { background: linear-gradient(#ffd0c2 0 68%, #e7a99a 68%); } 50% { background: linear-gradient(#ffa898 0 68%, #db8a7c 68%); } }
+.room:is([data-stage="fight"], [data-stage="ask"], [data-stage="calm"]) :is(.bed) { opacity: .45; }
+.room.rage .pet .rui { animation: tremble .18s linear infinite; }
+@keyframes tremble { 25% { transform: translate(1px, -1px); } 75% { transform: translate(-1px, 1px); } }
+.pet .bat-arm { transform-box: fill-box; transform-origin: 0% 100%; }
+.pet.swing .pet-body { animation: lunge .3s ease-out; }
+.pet.swing .bat-arm { animation: bat .3s ease-in-out; }
+@keyframes lunge { 50% { translate: 16px 0; } }
+@keyframes bat { 0% { transform: rotate(0); } 30% { transform: rotate(-35deg); } 65% { transform: rotate(75deg); } 100% { transform: rotate(0); } }
+.foes { position: absolute; right: 1%; bottom: 6px; width: 58%; z-index: 4; display: flex; flex-wrap: wrap-reverse; justify-content: flex-end; gap: 0 4px; }
 .foe { width: 31%; max-width: 76px; padding: 0; position: relative; animation: dropIn .5s cubic-bezier(.3, 1.5, .5, 1) both; animation-delay: var(--d); }
 .foe svg { width: 100%; display: block; }
 .foe-name { display: block; max-width: 100%; margin: 0 auto 2px; width: max-content; padding: 2px 7px; border-radius: 8px; background: #2b2723; color: #fff;
@@ -530,16 +575,36 @@ input { font: inherit; }
 @keyframes shake { 20% { transform: translateX(6px) rotate(8deg); } 45% { transform: translateX(-5px) rotate(-6deg); } 70% { transform: translateX(3px) rotate(3deg); } }
 @keyframes ouch { 0% { opacity: 0; transform: translate(-50%, 6px); } 25% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -14px); } }
 @keyframes flyAway { 0% { transform: none; opacity: 1; } 100% { transform: translate(140px, -230px) rotate(600deg) scale(.4); opacity: 0; } }
-.pow { position: absolute; z-index: 6; font-size: 1.5rem; font-weight: 900; color: #e0003a; -webkit-text-stroke: 1px #fff; text-shadow: 0 2px 0 #fff, 0 0 8px #fff; pointer-events: none; animation: powIn .7s ease-out forwards; }
-@keyframes powIn { 0% { transform: scale(.3) rotate(-15deg); opacity: 0; } 25% { transform: scale(1.3) rotate(6deg); opacity: 1; } 100% { transform: scale(1) translateY(-18px); opacity: 0; } }
-.fight-say { margin: 12px 2px 0; padding: 12px 14px; background: var(--accent-soft); border-radius: 16px; font-size: 1.1rem; font-weight: 800; line-height: 1.45; min-height: 3.2em; }
-.fight-say.pop { animation: pop .35s ease-out; }
-.fight-btns { display: flex; gap: 10px; margin-top: 12px; min-height: 3.1rem; }
-.fight-btns .btn { flex: 1; white-space: nowrap; font-size: 1rem; padding-left: .3rem; padding-right: .3rem; }
-.fight-hint { flex: 1; text-align: center; align-self: center; color: var(--muted); font-weight: 800; }
+.pet-say { margin: 12px 2px 0; padding: 12px 14px; background: var(--accent-soft); border-radius: 16px; font-size: 1.08rem; font-weight: 800; line-height: 1.45; min-height: 3.2em; }
+.pet-say.pop { animation: pop .35s ease-out; }
+.pet-btns { margin-top: 12px; display: grid; gap: 10px; min-height: 3.1rem; }
+.pb-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pb-grid.food { grid-template-columns: repeat(3, 1fr); }
+.pb-grid.wear { grid-template-columns: repeat(5, 1fr); }
+.pb-grid .btn { flex-direction: column; gap: 2px; padding: .5rem .2rem; font-size: 1.5rem; min-height: 4.2rem; }
+.pb-grid .btn small { font-size: .8rem; font-weight: 800; }
+.pb-grid.wear .btn { font-size: 1.2rem; } .pb-grid.wear .btn small { font-size: .72rem; }
+.btn.locked { opacity: .5; }
+.pb-row { display: flex; gap: 10px; }
+.pb-row .btn { flex: 1; white-space: nowrap; font-size: 1rem; padding-left: .3rem; padding-right: .3rem; }
+.pb-hint { text-align: center; color: var(--muted); font-weight: 800; font-size: .92rem; }
+.pb-hint.big { font-size: 1rem; padding: 12px 0; }
+.bond-bar { height: 10px; border-radius: 5px; background: #f3e4ea; margin: 10px 0 6px; overflow: hidden; }
+.bond-bar i { display: block; height: 100%; background: linear-gradient(90deg, #ff8fb3, #d9467a); border-radius: 5px; transition: width .5s; }
+.bond-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 14px; margin-top: 8px; }
+.bond-links .link-btn { margin: 4px 0 0; }
 .rank { list-style: none; padding: 0; margin: 10px 0 0; }
 .rank li { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); font-weight: 700; }
 .rank li:last-child { border-bottom: 0; }
 .rank .rk { width: 1.8rem; text-align: center; font-size: 1.2rem; }
 .rank .rn { flex: 1; font-size: 1.05rem; }
 .rank .rc { color: var(--accent-ink); }
+#peek { position: fixed; right: 0; bottom: calc(5.6rem + env(safe-area-inset-bottom)); z-index: 18; }
+#peek[hidden] { display: none; }
+.peek-btn { display: flex; align-items: flex-end; gap: 4px; padding: 0; }
+.peek-head { width: 64px; height: 58px; overflow: hidden; display: block; transform: translateX(14px) rotate(-12deg); animation: peekIn .6s ease-out; }
+.peek-head .rui { width: 64px; animation: none; }
+.peek-say { background: #fff; border-radius: 14px; padding: 6px 10px; font-size: .78rem; font-weight: 800; max-width: 130px; text-align: left;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, .12); margin-bottom: 26px; animation: peekSay 6s ease forwards; pointer-events: none; }
+@keyframes peekSay { 0% { opacity: 0; } 8%, 80% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+@keyframes peekIn { from { transform: translateX(70px) rotate(-12deg); } }
